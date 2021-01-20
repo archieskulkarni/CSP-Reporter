@@ -1,8 +1,8 @@
 import flask
-from flask import request, jsonify, render_template
-import sqlite3
-import random
-import tldextract
+from flask import request, jsonify, render_template, Markup
+from json2html import *
+import sqlite3, random, tldextract, json
+import pandas as pd
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
@@ -32,6 +32,7 @@ def fetchCSP():
 @app.errorhandler(404)
 def page_not_found(e):
     return "<h1>404</h1><p>The resource could not be found.</p>", 404
+
 
 @app.route('/api/v1/cspreports/update', methods=['POST'])
 def postCSP():
@@ -65,8 +66,13 @@ def viewReports():
     conn.row_factory = dict_factory
     cur = conn.cursor()
     results = cur.execute(query, (userid,)).fetchall()
-    # content = (results))
-    print(results)
-    return render_template("viewreports.html", content=results, userid=userid)
+    domain = results[0]['domain']
+    cspvalues = json.loads(results[0]['jsondata'])
+    df = pd.json_normalize(cspvalues)
+    df.columns = df.columns.str.replace(r'csp-report.', '')
+    print(df)
+    html_df = Markup(df.to_html())
+    #print(html_df)
+    return render_template("viewreports.html", content=html_df, userid=userid, title='View', domain = domain)
 
 app.run()
